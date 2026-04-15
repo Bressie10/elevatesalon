@@ -115,7 +115,7 @@ export default function ProductClient({ variants }) {
                   ? '1.5px solid var(--gold)'
                   : '1.5px solid var(--border-2)',
                 background: selectedId === v.id
-                  ? 'rgba(201,168,76,0.1)'
+                  ? 'rgba(61,216,205,0.1)'
                   : 'var(--surface)',
                 color: selectedId === v.id ? 'var(--gold)' : 'var(--text)',
                 fontSize: '13px',
@@ -204,7 +204,7 @@ export default function ProductClient({ variants }) {
           transition: 'background 0.2s',
           boxShadow: !selectedId || loading
             ? 'none'
-            : '0 0 24px rgba(201,168,76,0.2)',
+            : '0 0 24px rgba(61,216,205,0.2)',
         }}
       >
         {loading ? 'Redirecting…' : 'Buy Now'}

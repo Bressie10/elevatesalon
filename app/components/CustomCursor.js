@@ -69,7 +69,7 @@ export default function CustomCursor() {
           marginLeft: '-18px',
           marginTop: '-18px',
           borderRadius: '50%',
-          border: '1px solid rgba(201,168,76,0.6)',
+          border: '1px solid rgba(61,216,205,0.6)',
           pointerEvents: 'none',
           zIndex: 99999,
           transition: 'transform 0.15s ease, opacity 0.2s',

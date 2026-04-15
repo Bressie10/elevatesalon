@@ -56,7 +56,7 @@ export default function ProductCard({ product, index = 0 }) {
             transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
             transition: tilt.x === 0 ? 'transform 0.6s ease, box-shadow 0.4s ease, border-color 0.3s ease' : 'none',
             boxShadow: tilt.x !== 0 || tilt.y !== 0
-              ? `0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08)`
+              ? `0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(61,216,205,0.08)`
               : '0 0 0 rgba(0,0,0,0)',
             willChange: 'transform',
           }}
@@ -67,7 +67,7 @@ export default function ProductCard({ product, index = 0 }) {
             style={{
               position: 'absolute',
               inset: 0,
-              background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(201,168,76,${shine.opacity}), transparent 65%)`,
+              background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(61,216,205,${shine.opacity}), transparent 65%)`,
               pointerEvents: 'none',
               zIndex: 3,
               transition: shine.opacity === 0 ? 'opacity 0.4s ease' : 'none',
@@ -111,7 +111,7 @@ export default function ProductCard({ product, index = 0 }) {
                     position: 'relative',
                     zIndex: 1,
                     fontSize: '32px',
-                    color: 'rgba(201,168,76,0.2)',
+                    color: 'rgba(61,216,205,0.2)',
                     userSelect: 'none',
                   }}
                 >
@@ -197,7 +197,7 @@ export default function ProductCard({ product, index = 0 }) {
               left: 0,
               right: 0,
               height: '1px',
-              background: `linear-gradient(90deg, transparent, rgba(201,168,76,${Math.min(shine.opacity * 4, 0.6)}), transparent)`,
+              background: `linear-gradient(90deg, transparent, rgba(61,216,205,${Math.min(shine.opacity * 4, 0.6)}), transparent)`,
               transition: shine.opacity === 0 ? 'opacity 0.4s' : 'none',
             }}
           />

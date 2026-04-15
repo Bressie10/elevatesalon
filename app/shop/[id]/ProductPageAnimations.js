@@ -64,7 +64,7 @@ export default function ProductPageAnimations({ product, inStockVariants }) {
                       position: 'relative',
                       zIndex: 1,
                       fontSize: '64px',
-                      color: 'rgba(201,168,76,0.15)',
+                      color: 'rgba(61,216,205,0.15)',
                       userSelect: 'none',
                     }}
                   >

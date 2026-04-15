@@ -65,7 +65,7 @@ function Particles() {
         p.shape ? (
           <motion.span
             key={p.id}
-            style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, fontSize: p.size + 6, color: 'rgba(201,168,76,0.15)', userSelect: 'none' }}
+            style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, fontSize: p.size + 6, color: 'rgba(61,216,205,0.15)', userSelect: 'none' }}
             animate={{ y: [0, -20, 0], opacity: [0.1, 0.3, 0.1], rotate: [0, 180, 360] }}
             transition={{ duration: p.dur, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
           />
@@ -84,11 +84,11 @@ function Particles() {
 
 // ─── Cinematic intro overlay ──────────────────────────────────────────────────
 function IntroOverlay({ onComplete }) {
-  const wordA = useScramble('ELEVATE', 100)
-  const wordB = useScramble('SALON', 800)
+  const wordA = useScramble('ELEVATE', 40)
+  const wordB = useScramble('SALON', 300)
 
   useEffect(() => {
-    const t = setTimeout(onComplete, 3200)
+    const t = setTimeout(onComplete, 1400)
     return () => clearTimeout(t)
   }, [onComplete])
 
@@ -96,14 +96,14 @@ function IntroOverlay({ onComplete }) {
     <motion.div
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.06, filter: 'blur(12px)' }}
-      transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
+      transition={{ duration: 0.45, ease: [0.76, 0, 0.24, 1] }}
       style={{ position: 'fixed', inset: 0, background: '#030303', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
     >
       {/* Horizontal lines sweeping out */}
       <motion.div
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 1.4, delay: 0.05, ease: [0.76, 0, 0.24, 1] }}
+        transition={{ duration: 0.55, delay: 0.05, ease: [0.76, 0, 0.24, 1] }}
         style={{ width: '320px', height: '1px', background: 'linear-gradient(90deg, transparent, var(--gold), transparent)', transformOrigin: 'center', marginBottom: '40px' }}
       />
 
@@ -116,7 +116,7 @@ function IntroOverlay({ onComplete }) {
       <motion.div
         initial={{ scaleY: 0 }}
         animate={{ scaleY: 1 }}
-        transition={{ duration: 0.6, delay: 1.1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.3, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
         style={{ width: '1px', height: '28px', background: 'var(--gold)', margin: '14px 0', transformOrigin: 'top' }}
       />
 
@@ -128,7 +128,7 @@ function IntroOverlay({ onComplete }) {
       <motion.div
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 1.4, delay: 0.05, ease: [0.76, 0, 0.24, 1] }}
+        transition={{ duration: 0.55, delay: 0.05, ease: [0.76, 0, 0.24, 1] }}
         style={{ width: '320px', height: '1px', background: 'linear-gradient(90deg, transparent, var(--gold), transparent)', transformOrigin: 'center' }}
       />
 
@@ -136,7 +136,7 @@ function IntroOverlay({ onComplete }) {
       <motion.div
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 3.0, delay: 0.2, ease: 'linear' }}
+        transition={{ duration: 1.3, delay: 0.05, ease: 'linear' }}
         style={{ position: 'absolute', bottom: 0, left: 0, height: '2px', width: '100%', background: 'linear-gradient(90deg, var(--gold-dim), var(--gold), var(--gold-light))', transformOrigin: 'left', opacity: 0.7 }}
       />
 
@@ -144,7 +144,7 @@ function IntroOverlay({ onComplete }) {
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.6 }}
+        transition={{ duration: 0.4, delay: 0.65 }}
         style={{ position: 'absolute', bottom: '28px', right: '36px', fontFamily: 'var(--font-geist-mono)', fontSize: '9px', letterSpacing: '0.22em', color: 'var(--text-dim)', textTransform: 'uppercase' }}
       >
         Est. MMXXIV — Dublin

@@ -49,8 +49,8 @@ export default function WaveCanvas({ style }) {
         ctx.closePath()
 
         const grad = ctx.createLinearGradient(0, baseY - wave.amp, 0, h)
-        grad.addColorStop(0, `rgba(201,168,76,${wave.alpha})`)
-        grad.addColorStop(0.5, `rgba(180,140,50,${wave.alpha * 0.6})`)
+        grad.addColorStop(0, `rgba(61,216,205,${wave.alpha})`)
+        grad.addColorStop(0.5, `rgba(30,180,174,${wave.alpha * 0.6})`)
         grad.addColorStop(1, `rgba(10,10,10,0)`)
         ctx.fillStyle = grad
         ctx.fill()
@@ -61,7 +61,7 @@ export default function WaveCanvas({ style }) {
           const y = baseY + Math.sin(x * wave.freq + tRef.current * wave.speed + wave.phase) * wave.amp
           x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
         }
-        ctx.strokeStyle = `rgba(201,168,76,${wave.alpha * 1.8})`
+        ctx.strokeStyle = `rgba(61,216,205,${wave.alpha * 1.8})`
         ctx.lineWidth = 1
         ctx.stroke()
       }
