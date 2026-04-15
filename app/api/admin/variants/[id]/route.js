@@ -9,7 +9,7 @@ export async function PUT(request, { params }) {
 
   const { id } = await params
   const body = await request.json()
-  const { label, price, in_stock } = body
+  const { label, price, in_stock, stock_quantity } = body
 
   const db = getAdminClient()
 
@@ -44,6 +44,7 @@ export async function PUT(request, { params }) {
 
   if (label != null) updates.label = label
   if (in_stock != null) updates.in_stock = in_stock
+  if (stock_quantity != null) updates.stock_quantity = stock_quantity
 
   const { data, error } = await db
     .from('variants')

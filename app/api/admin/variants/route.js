@@ -8,7 +8,7 @@ export async function POST(request) {
   }
 
   const body = await request.json()
-  const { product_id, label, price, in_stock = true } = body
+  const { product_id, label, price, in_stock = true, stock_quantity = 99 } = body
 
   if (!product_id || !label || price == null) {
     return Response.json(
@@ -48,6 +48,7 @@ export async function POST(request) {
       label,
       price,
       in_stock,
+      stock_quantity,
       stripe_price_id: stripePrice.id,
       stripe_product_id: stripeProduct.id,
     })

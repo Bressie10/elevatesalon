@@ -413,6 +413,7 @@ function VariantModal({ variant, productId, onClose, onSaved }) {
   const [label, setLabel] = useState(variant?.label ?? '')
   const [price, setPrice] = useState(variant?.price ?? '')
   const [inStock, setInStock] = useState(variant?.in_stock ?? true)
+  const [stockQty, setStockQty] = useState(variant?.stock_quantity ?? 99)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -423,10 +424,12 @@ function VariantModal({ variant, productId, onClose, onSaved }) {
     if (!label.trim()) return setError('Label is required')
     const priceNum = parseFloat(price)
     if (isNaN(priceNum) || priceNum <= 0) return setError('Enter a valid price')
+    const stockNum = parseInt(stockQty, 10)
+    if (isNaN(stockNum) || stockNum < 0) return setError('Enter a valid stock quantity')
     setSaving(true)
     setError('')
 
-    const payload = { label: label.trim(), price: priceNum, in_stock: inStock, product_id: productId }
+    const payload = { label: label.trim(), price: priceNum, in_stock: inStock, stock_quantity: stockNum, product_id: productId }
     const url = isEdit ? `/api/admin/variants/${variant.id}` : '/api/admin/variants'
     const method = isEdit ? 'PUT' : 'POST'
 
@@ -457,18 +460,33 @@ function VariantModal({ variant, productId, onClose, onSaved }) {
             />
           </div>
 
-          <div style={s.field}>
-            <label style={s.label}>Price (EUR) *</label>
-            <input
-              style={s.input}
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="0.00"
-              required
-            />
+          <div style={s.formRow}>
+            <div style={{ ...s.field, flex: 1 }}>
+              <label style={s.label}>Price (EUR) *</label>
+              <input
+                style={s.input}
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
+            <div style={{ ...s.field, flex: 1 }}>
+              <label style={s.label}>Stock quantity *</label>
+              <input
+                style={s.input}
+                type="number"
+                min="0"
+                step="1"
+                value={stockQty}
+                onChange={(e) => setStockQty(e.target.value)}
+                placeholder="99"
+                required
+              />
+            </div>
           </div>
 
           <div style={{ ...s.field, display: 'flex', alignItems: 'center', gap: '12px' }}>
