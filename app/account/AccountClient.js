@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -16,26 +16,19 @@ function formatDate(iso) {
 }
 
 function daysUntil(dateStr) {
-  const now = new Date()
-  const target = new Date(dateStr)
-  return Math.ceil((target - now) / (1000 * 60 * 60 * 24))
+  return Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24))
 }
+
+const STORAGE_KEY = 'elevate_account_email'
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = {
   shell: { minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-geist-sans)' },
   nav: {
-    borderBottom: '1px solid var(--border)',
-    padding: '0 24px',
-    height: '56px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    background: 'var(--surface)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
+    borderBottom: '1px solid var(--border)', padding: '0 24px', height: '56px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 10,
   },
   logo: { fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', fontWeight: '500', textDecoration: 'none' },
   navLink: { fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'none' },
@@ -59,7 +52,7 @@ const s = {
   successText: { color: 'var(--success)', fontSize: '13px', marginTop: '10px' },
 }
 
-// ─── Subscription overview card ────────────────────────────────────────────────
+// ─── Overview card ─────────────────────────────────────────────────────────────
 
 function OverviewCard({ subscription, nextBillingDate, locked }) {
   const days = daysUntil(nextBillingDate)
@@ -71,42 +64,30 @@ function OverviewCard({ subscription, nextBillingDate, locked }) {
   return (
     <div style={s.card}>
       <p style={s.sectionLabel}>Subscription overview</p>
-
       <div style={s.metaRow}>
         <span style={s.metaKey}>Status</span>
-        <span style={{ color: statusColor, fontWeight: '500', textTransform: 'capitalize' }}>
-          {subscription.status}
-        </span>
+        <span style={{ color: statusColor, fontWeight: '500', textTransform: 'capitalize' }}>{subscription.status}</span>
       </div>
-
       <div style={s.metaRow}>
         <span style={s.metaKey}>Monthly total</span>
-        <span style={{ color: 'var(--gold)', fontWeight: '600', fontSize: '15px' }}>
-          €{total.toFixed(2)}
-        </span>
+        <span style={{ color: 'var(--gold)', fontWeight: '600', fontSize: '15px' }}>€{total.toFixed(2)}</span>
       </div>
-
       <div style={s.metaRow}>
         <span style={s.metaKey}>Next billing date</span>
-        <span>{formatDate(nextBillingDate)} ({days} day{days !== 1 ? 's' : ''} away)</span>
+        <span>{formatDate(nextBillingDate)} <span style={{ color: 'var(--text-muted)' }}>({days} day{days !== 1 ? 's' : ''} away)</span></span>
       </div>
-
       <div style={s.metaRow}>
         <span style={s.metaKey}>Billing day</span>
         <span>{ordinal(subscription.billing_day)} of each month</span>
       </div>
-
       <div style={{ ...s.metaRow, marginBottom: 0 }}>
         <span style={s.metaKey}>Member since</span>
         <span>{formatDate(subscription.created_at)}</span>
       </div>
-
       {locked && (
         <div style={{ marginTop: '16px', padding: '12px 14px', background: 'rgba(224,154,44,0.08)', border: '1px solid rgba(224,154,44,0.25)', borderRadius: '6px' }}>
-          <p style={{ fontSize: '13px', color: '#e09a2c', fontWeight: '500', marginBottom: '2px' }}>
-            Bundle locked
-          </p>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '13px', color: '#e09a2c', fontWeight: '500', marginBottom: '3px' }}>Bundle locked</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             Changes are closed within 14 days of your billing date. Your bundle for {formatDate(nextBillingDate)} is confirmed. Editing reopens after that invoice is sent.
           </p>
         </div>
@@ -150,8 +131,7 @@ function BundleEditor({ subscription, locked, onCancel }) {
   }
 
   async function handleSave() {
-    setError('')
-    setSuccess('')
+    setError(''); setSuccess('')
     if (activeItems.length === 0) return setError('Your bundle cannot be empty.')
     setSaving(true)
     const items = activeItems.map((v) => ({ variantId: v.variantId, quantity: qtys[v.variantId] }))
@@ -168,8 +148,7 @@ function BundleEditor({ subscription, locked, onCancel }) {
 
   async function handleCancel() {
     if (!confirm('Cancel your subscription? This cannot be undone.')) return
-    setCancelling(true)
-    setError('')
+    setCancelling(true); setError('')
     const res = await fetch(`/api/account?email=${encodeURIComponent(subscription.user_email)}`, { method: 'DELETE' })
     const data = await res.json()
     setCancelling(false)
@@ -180,59 +159,27 @@ function BundleEditor({ subscription, locked, onCancel }) {
   return (
     <div style={s.card}>
       <p style={s.sectionLabel}>Your bundle</p>
-
       {subItems.map((v, idx) => {
         const qty = qtys[v.variantId] || 0
+        const isLast = idx === subItems.length - 1
         return (
-          <div
-            key={v.variantId}
-            style={{ ...s.itemRow, ...(idx === subItems.length - 1 ? { borderBottom: 'none' } : {}) }}
-          >
+          <div key={v.variantId} style={{ ...s.itemRow, ...(isLast ? { borderBottom: 'none' } : {}) }}>
             <span style={{ flex: 1 }}>{v.productName} — {v.label}</span>
-            <span style={{ color: 'var(--gold)', minWidth: '56px', textAlign: 'right' }}>
-              €{Number(v.price).toFixed(2)}
-            </span>
+            <span style={{ color: 'var(--gold)', minWidth: '56px', textAlign: 'right' }}>€{Number(v.price).toFixed(2)}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                style={{ ...s.qtyBtn, opacity: locked || qty === 0 ? 0.4 : 1, cursor: locked || qty === 0 ? 'not-allowed' : 'pointer' }}
-                type="button"
-                onClick={() => !locked && setQty(v.variantId, qty - 1, v.available)}
-                disabled={locked || qty === 0}
-              >−</button>
+              <button style={{ ...s.qtyBtn, opacity: locked || qty === 0 ? 0.35 : 1, cursor: locked || qty === 0 ? 'not-allowed' : 'pointer' }} type="button" onClick={() => !locked && setQty(v.variantId, qty - 1, v.available)} disabled={locked || qty === 0}>−</button>
               <span style={{ minWidth: '20px', textAlign: 'center' }}>{qty}</span>
-              <button
-                style={{ ...s.qtyBtn, opacity: locked || qty >= v.available ? 0.4 : 1, cursor: locked || qty >= v.available ? 'not-allowed' : 'pointer' }}
-                type="button"
-                onClick={() => !locked && setQty(v.variantId, qty + 1, v.available)}
-                disabled={locked || qty >= v.available}
-              >+</button>
+              <button style={{ ...s.qtyBtn, opacity: locked || qty >= v.available ? 0.35 : 1, cursor: locked || qty >= v.available ? 'not-allowed' : 'pointer' }} type="button" onClick={() => !locked && setQty(v.variantId, qty + 1, v.available)} disabled={locked || qty >= v.available}>+</button>
             </div>
           </div>
         )
       })}
-
-      {activeItems.length > 0 && (
-        <>
-          <div style={s.divider} />
-          <div style={s.totalRow}>
-            <span>Monthly total</span>
-            <span style={{ color: 'var(--gold)' }}>€{total.toFixed(2)}</span>
-          </div>
-        </>
-      )}
-
+      {activeItems.length > 0 && (<><div style={s.divider} /><div style={s.totalRow}><span>Monthly total</span><span style={{ color: 'var(--gold)' }}>€{total.toFixed(2)}</span></div></>)}
       {error && <p style={s.errText}>{error}</p>}
       {success && <p style={s.successText}>{success}</p>}
-
       <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
-        {!locked && (
-          <button style={s.btnGold} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-        )}
-        <button style={s.btnDanger} onClick={handleCancel} disabled={cancelling}>
-          {cancelling ? 'Cancelling…' : 'Cancel subscription'}
-        </button>
+        {!locked && <button style={s.btnGold} onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>}
+        <button style={s.btnDanger} onClick={handleCancel} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel subscription'}</button>
       </div>
     </div>
   )
@@ -241,49 +188,23 @@ function BundleEditor({ subscription, locked, onCancel }) {
 // ─── Order history ─────────────────────────────────────────────────────────────
 
 function OrderHistory({ orders }) {
-  if (orders.length === 0) {
-    return (
-      <div style={s.card}>
-        <p style={s.sectionLabel}>Order history</p>
-        <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>No orders yet. Your first invoice will be sent on your billing date.</p>
-      </div>
-    )
-  }
-
   return (
     <div style={s.card}>
       <p style={s.sectionLabel}>Order history</p>
-      {orders.map((order, idx) => (
-        <div
-          key={order.id}
-          style={{
-            paddingBottom: '14px',
-            marginBottom: '14px',
-            borderBottom: idx < orders.length - 1 ? '1px solid var(--border)' : 'none',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div>
-              <p style={{ fontSize: '13px', fontWeight: '500' }}>{formatDate(order.created_at)}</p>
-            </div>
+      {orders.length === 0 ? (
+        <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>No orders yet. Your first invoice will be sent on your billing date.</p>
+      ) : orders.map((order, idx) => (
+        <div key={order.id} style={{ paddingBottom: '14px', marginBottom: '14px', borderBottom: idx < orders.length - 1 ? '1px solid var(--border)' : 'none' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '500' }}>{formatDate(order.created_at)}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(76,175,128,0.12)', color: 'var(--success)' }}>
-                Paid
-              </span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)' }}>
-                €{((order.total ?? 0) / 100).toFixed(2)}
-              </span>
+              <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(76,175,128,0.12)', color: 'var(--success)' }}>Paid</span>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)' }}>€{((order.total ?? 0) / 100).toFixed(2)}</span>
             </div>
           </div>
-          {Array.isArray(order.items) && order.items.length > 0 && (
-            <div>
-              {order.items.map((item, i) => (
-                <p key={i} style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  {item.description} ×{item.quantity}
-                </p>
-              ))}
-            </div>
-          )}
+          {Array.isArray(order.items) && order.items.map((item, i) => (
+            <p key={i} style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.7 }}>{item.description} ×{item.quantity}</p>
+          ))}
         </div>
       ))}
     </div>
@@ -294,98 +215,127 @@ function OrderHistory({ orders }) {
 
 export default function AccountClient() {
   const [email, setEmail] = useState('')
-  const [data, setData] = useState(null) // { subscription, orders, locked, nextBillingDate }
+  const [accountData, setAccountData] = useState(null)
   const [fetching, setFetching] = useState(false)
   const [fetchError, setFetchError] = useState('')
   const [cancelled, setCancelled] = useState(false)
 
-  async function handleLookup(e) {
-    e.preventDefault()
+  // Auto-load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      setEmail(saved)
+      fetchAccount(saved)
+    }
+  }, [])
+
+  async function fetchAccount(emailToFetch) {
     setFetchError('')
     setCancelled(false)
-    setData(null)
+    setAccountData(null)
     setFetching(true)
-
-    const res = await fetch(`/api/account?email=${encodeURIComponent(email.trim())}`)
+    const res = await fetch(`/api/account?email=${encodeURIComponent(emailToFetch)}`)
     const json = await res.json()
     setFetching(false)
-
-    if (!res.ok) return setFetchError(json.error || 'Failed to look up account.')
-    setData(json)
+    if (!res.ok) {
+      setFetchError(json.error || 'Failed to look up account.')
+      return
+    }
+    if (json.subscription) localStorage.setItem(STORAGE_KEY, emailToFetch)
+    setAccountData(json)
   }
+
+  async function handleLookup(e) {
+    e.preventDefault()
+    fetchAccount(email.trim())
+  }
+
+  function handleSignOut() {
+    localStorage.removeItem(STORAGE_KEY)
+    setEmail('')
+    setAccountData(null)
+    setFetchError('')
+    setCancelled(false)
+  }
+
+  const isLoggedIn = !!(accountData?.subscription && !cancelled)
 
   return (
     <div style={s.shell}>
       <nav style={s.nav}>
         <Link href="/" style={s.logo}>Elevate Salon</Link>
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <Link href="/shop" style={s.navLink}>Shop</Link>
           <Link href="/subscribe" style={s.navLink}>Subscribe</Link>
+          {isLoggedIn && (
+            <button onClick={handleSignOut} style={{ ...s.navLink, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              Sign out
+            </button>
+          )}
         </div>
       </nav>
 
       <main style={s.main}>
         <h1 style={s.pageTitle}>My Account</h1>
-        <p style={s.pageSub}>Enter your subscription email to view and manage your bundle.</p>
+        <p style={s.pageSub}>Manage your monthly bundle and view past orders.</p>
 
-        {/* Email lookup */}
-        <div style={{ ...s.card, marginBottom: '24px' }}>
-          <form onSubmit={handleLookup}>
-            <label style={s.label} htmlFor="acct-email">Email address</label>
-            <input
-              id="acct-email"
-              type="email"
-              style={s.input}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              autoComplete="email"
-            />
-            {fetchError && <p style={s.errText}>{fetchError}</p>}
-            <div style={{ marginTop: '12px' }}>
-              <button type="submit" style={s.btnGold} disabled={fetching}>
-                {fetching ? 'Looking up…' : 'View my subscription'}
-              </button>
-            </div>
-          </form>
-        </div>
+        {/* Email lookup — only shown when not logged in */}
+        {!isLoggedIn && !cancelled && (
+          <div style={{ ...s.card, marginBottom: '24px' }}>
+            <form onSubmit={handleLookup}>
+              <label style={s.label} htmlFor="acct-email">Email address</label>
+              <input
+                id="acct-email"
+                type="email"
+                style={s.input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
+              {fetchError && <p style={s.errText}>{fetchError}</p>}
+              {fetching && <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '10px' }}>Looking up…</p>}
+              {!fetching && (
+                <div style={{ marginTop: '12px' }}>
+                  <button type="submit" style={s.btnGold}>View my subscription</button>
+                </div>
+              )}
+            </form>
+          </div>
+        )}
 
-        {/* Cancelled confirmation */}
+        {/* Cancelled */}
         {cancelled && (
           <div style={{ ...s.card, textAlign: 'center' }}>
             <p style={{ color: 'var(--success)', fontWeight: '500', marginBottom: '6px' }}>Subscription cancelled.</p>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>You're welcome back any time.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>You're welcome back any time.</p>
+            <Link href="/subscribe" style={{ color: 'var(--gold)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>Start a new subscription →</Link>
           </div>
         )}
 
         {/* No subscription found */}
-        {!cancelled && data && !data.subscription && (
+        {!cancelled && accountData && !accountData.subscription && (
           <div style={{ ...s.card, textAlign: 'center' }}>
             <p style={{ color: 'var(--text-muted)', marginBottom: '14px' }}>No active subscription found for this email.</p>
-            <Link
-              href="/subscribe"
-              style={{ color: 'var(--gold)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}
-            >
-              Start a subscription →
-            </Link>
+            <Link href="/subscribe" style={{ color: 'var(--gold)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>Start a subscription →</Link>
           </div>
         )}
 
-        {/* Subscription found */}
-        {!cancelled && data?.subscription && (
+        {/* Subscription dashboard */}
+        {isLoggedIn && accountData.subscription && (
           <>
             <OverviewCard
-              subscription={data.subscription}
-              nextBillingDate={data.nextBillingDate}
-              locked={data.locked}
+              subscription={accountData.subscription}
+              nextBillingDate={accountData.nextBillingDate}
+              locked={accountData.locked}
             />
             <BundleEditor
-              subscription={data.subscription}
-              locked={data.locked}
-              onCancel={() => setCancelled(true)}
+              subscription={accountData.subscription}
+              locked={accountData.locked}
+              onCancel={() => { setCancelled(true); localStorage.removeItem(STORAGE_KEY) }}
             />
-            <OrderHistory orders={data.orders || []} />
+            <OrderHistory orders={accountData.orders || []} />
           </>
         )}
       </main>

@@ -236,6 +236,7 @@ const s = {
   formRow: { display: 'flex', gap: '12px' },
   errText: { color: 'var(--error)', fontSize: '13px', marginTop: '8px' },
   successText: { color: 'var(--success)', fontSize: '13px', marginTop: '8px' },
+  input: { background: 'var(--surface-2)', border: '1px solid var(--border-2)', borderRadius: '6px', padding: '9px 14px', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box' },
 }
 
 // ─── Toggle ───────────────────────────────────────────────────────────────────
@@ -521,25 +522,30 @@ export default function AdminDashboard() {
   const [expandedId, setExpandedId] = useState(null)
 
   // Subscription data
-  const [subData, setSubData] = useState(null) // { subscriptions, variants, monthlyOrders }
+  const [subData, setSubData] = useState(null)
   const [subLoading, setSubLoading] = useState(true)
   const [subError, setSubError] = useState('')
 
+  // Orders
+  const [orderData, setOrderData] = useState(null) // { orders, stats, fulfillment }
+  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [ordersError, setOrdersError] = useState('')
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderType, setOrderType] = useState('all') // all | shop | subscription
+  const [expandedOrderId, setExpandedOrderId] = useState(null)
+
   // Modals
-  const [productModal, setProductModal] = useState(null) // null | 'new' | product obj
-  const [variantModal, setVariantModal] = useState(null) // null | { productId, variant? }
+  const [productModal, setProductModal] = useState(null)
+  const [variantModal, setVariantModal] = useState(null)
 
   const router = useRouter()
+  const searchTimer = useRef(null)
 
   async function load() {
     setLoading(true)
     setError('')
     const res = await fetch('/api/admin/products')
-    if (!res.ok) {
-      setError('Failed to load products')
-      setLoading(false)
-      return
-    }
+    if (!res.ok) { setError('Failed to load products'); setLoading(false); return }
     const data = await res.json()
     setProducts(data)
     setLoading(false)
@@ -549,17 +555,34 @@ export default function AdminDashboard() {
     setSubLoading(true)
     setSubError('')
     const res = await fetch('/api/admin/subscriptions')
-    if (!res.ok) {
-      setSubError('Failed to load subscription data')
-      setSubLoading(false)
-      return
-    }
-    const data = await res.json()
-    setSubData(data)
+    if (!res.ok) { setSubError('Failed to load subscription data'); setSubLoading(false); return }
+    setSubData(await res.json())
     setSubLoading(false)
   }
 
-  useEffect(() => { load(); loadSubData() }, [])
+  async function loadOrders(search = orderSearch, type = orderType) {
+    setOrdersLoading(true)
+    setOrdersError('')
+    const params = new URLSearchParams({ type })
+    if (search) params.set('search', search)
+    const res = await fetch(`/api/admin/orders?${params}`)
+    if (!res.ok) { setOrdersError('Failed to load orders'); setOrdersLoading(false); return }
+    setOrderData(await res.json())
+    setOrdersLoading(false)
+  }
+
+  useEffect(() => { load(); loadSubData(); loadOrders() }, [])
+
+  function handleSearchChange(val) {
+    setOrderSearch(val)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => loadOrders(val, orderType), 350)
+  }
+
+  function handleTypeChange(type) {
+    setOrderType(type)
+    loadOrders(orderSearch, type)
+  }
 
   async function handleLogout() {
     await fetch('/api/admin/logout', { method: 'POST' })
@@ -659,6 +682,161 @@ export default function AdminDashboard() {
       </header>
 
       <main style={s.main}>
+
+        {/* ── Stats Row ──────────────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '36px' }}>
+          {[
+            { label: 'Total Orders',        value: orderData ? orderData.stats.totalOrders  : '—' },
+            { label: 'Total Revenue',        value: orderData ? `€${(orderData.stats.totalRevenue / 100).toFixed(2)}` : '—' },
+            { label: 'Subscription Orders',  value: orderData ? orderData.stats.subCount     : '—' },
+            { label: 'Active Subscriptions', value: subData   ? subData.subscriptions.length  : '—' },
+            { label: 'This Month (Sub)',     value: orderData ? orderData.stats.thisMonthSubOrders : '—' },
+          ].map((stat) => (
+            <div key={stat.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px 18px' }}>
+              <p style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>{stat.label}</p>
+              <p style={{ fontSize: '22px', fontWeight: '300', color: 'var(--gold)', letterSpacing: '-0.01em' }}>{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Orders Section ─────────────────────────────────────────────────── */}
+        <section style={s.section}>
+          <div style={s.sectionHeader}>
+            <span style={s.sectionTitle}>Orders</span>
+            <button style={s.btnOutline} onClick={() => loadOrders()} disabled={ordersLoading}>Refresh</button>
+          </div>
+
+          {/* Search + filter bar */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <input
+              type="search"
+              placeholder="Search by email…"
+              value={orderSearch}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              style={{ ...s.input, flex: 1, minWidth: '200px', maxWidth: '340px' }}
+            />
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {['all', 'shop', 'subscription'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => handleTypeChange(t)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-2)',
+                    background: orderType === t ? 'var(--gold)' : 'transparent',
+                    color: orderType === t ? '#000' : 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: orderType === t ? '600' : '400',
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {t === 'all' ? 'All' : t === 'shop' ? 'Shop' : 'Subscription'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {ordersError && <p style={s.errText}>{ordersError}</p>}
+          {ordersLoading && <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>}
+
+          {/* ── Fulfillment summary ──────────────────────────────────────── */}
+          {!ordersLoading && orderData?.fulfillment?.length > 0 && (
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)', borderRadius: '10px', padding: '18px 20px', marginBottom: '20px' }}>
+              <p style={{ ...s.sectionTitle, marginBottom: '12px' }}>
+                Fulfillment — this month's subscription orders ({orderData.stats.thisMonthSubOrders})
+              </p>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                Total items to pack and ship across all subscription orders this month:
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                {orderData.fulfillment.map((f) => (
+                  <div key={f.item} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 14px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text)' }}>{f.item}</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)', marginLeft: '12px' }}>×{f.qty}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Order list ───────────────────────────────────────────────── */}
+          {!ordersLoading && orderData?.orders?.length === 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+              No orders found.
+            </div>
+          )}
+
+          {!ordersLoading && orderData?.orders?.map((order) => {
+            const isExpanded = expandedOrderId === order.id
+            const isSub = !!order.subscription_id
+            return (
+              <div key={order.id} style={{ ...s.productCard, marginBottom: '8px' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', cursor: 'pointer', flexWrap: 'wrap' }}
+                  onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                >
+                  {/* Type badge */}
+                  <span style={{ ...s.badge, background: isSub ? 'rgba(61,216,205,0.1)' : 'rgba(88,88,88,0.15)', color: isSub ? 'var(--gold)' : 'var(--text-muted)', flexShrink: 0 }}>
+                    {isSub ? 'Subscription' : 'Shop'}
+                  </span>
+
+                  {/* Email */}
+                  <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', minWidth: '160px', color: 'var(--text)' }}>
+                    {order.email || <span style={{ color: 'var(--text-dim)' }}>No email</span>}
+                  </span>
+
+                  {/* Date */}
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '90px' }}>
+                    {new Date(order.created_at).toLocaleDateString('en-IE', { dateStyle: 'medium' })}
+                  </span>
+
+                  {/* Item count */}
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '60px' }}>
+                    {Array.isArray(order.items) ? `${order.items.reduce((s, i) => s + (i.quantity || 1), 0)} item${order.items.reduce((s, i) => s + (i.quantity || 1), 0) !== 1 ? 's' : ''}` : '—'}
+                  </span>
+
+                  {/* Total */}
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)', minWidth: '68px', textAlign: 'right' }}>
+                    €{((order.total ?? 0) / 100).toFixed(2)}
+                  </span>
+
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{isExpanded ? '▲' : '▼'}</span>
+                </div>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '14px 18px 16px', background: 'var(--bg)' }}>
+                    <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '10px' }}>Items</p>
+                    {Array.isArray(order.items) && order.items.length > 0
+                      ? order.items.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '5px 0', borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            <span>{item.description || 'Item'}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              ×{item.quantity}&nbsp;&nbsp;€{((item.amount_total ?? 0) / 100).toFixed(2)}
+                            </span>
+                          </div>
+                        ))
+                      : <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>No item detail.</p>
+                    }
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Order ID: {order.stripe_session_id}</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)' }}>Total: €{((order.total ?? 0) / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {!ordersLoading && orderData && (
+            <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '10px', textAlign: 'right' }}>
+              Showing {orderData.orders.length} of {orderData.count} orders
+            </p>
+          )}
+        </section>
+
         {/* Products Section */}
         <section style={s.section}>
           <div style={s.sectionHeader}>
