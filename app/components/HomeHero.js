@@ -327,7 +327,10 @@ export default function HomeHero() {
             style={{ position: 'relative', zIndex: 10, padding: '28px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
             <span style={{ fontFamily: 'var(--font-geist-mono)', fontSize: '11px', letterSpacing: '0.25em', color: 'var(--gold)' }}>{brand}</span>
-            <Link href="/shop" className="nav-shop-link" style={{ fontFamily: 'var(--font-geist-mono)', fontSize: '10px', letterSpacing: '0.2em' }}>Shop</Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+              <Link href="/shop" className="nav-shop-link" style={{ fontFamily: 'var(--font-geist-mono)', fontSize: '10px', letterSpacing: '0.2em' }}>Shop</Link>
+              <Link href="/subscribe" className="nav-shop-link" style={{ fontFamily: 'var(--font-geist-mono)', fontSize: '10px', letterSpacing: '0.2em' }}>Subscribe</Link>
+            </div>
           </motion.nav>
 
           {/* 3D-tilting hero content */}

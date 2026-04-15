@@ -61,17 +61,32 @@ export default async function ShopPage() {
         >
           Elevate Salon
         </Link>
-        <span
-          style={{
-            fontFamily: 'var(--font-geist-mono)',
-            fontSize: '10px',
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            color: 'var(--text-dim)',
-          }}
-        >
-          The Collection
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-geist-mono)',
+              fontSize: '10px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: 'var(--text-dim)',
+            }}
+          >
+            The Collection
+          </span>
+          <Link
+            href="/subscribe"
+            style={{
+              fontFamily: 'var(--font-geist-mono)',
+              fontSize: '10px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+            }}
+          >
+            Subscribe
+          </Link>
+        </div>
       </nav>
 
       {/* Animated hero */}
