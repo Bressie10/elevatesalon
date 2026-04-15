@@ -502,6 +502,11 @@ export default function AdminDashboard() {
   const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState(null)
 
+  // Subscription data
+  const [subData, setSubData] = useState(null) // { subscriptions, variants, monthlyOrders }
+  const [subLoading, setSubLoading] = useState(true)
+  const [subError, setSubError] = useState('')
+
   // Modals
   const [productModal, setProductModal] = useState(null) // null | 'new' | product obj
   const [variantModal, setVariantModal] = useState(null) // null | { productId, variant? }
@@ -522,7 +527,21 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  async function loadSubData() {
+    setSubLoading(true)
+    setSubError('')
+    const res = await fetch('/api/admin/subscriptions')
+    if (!res.ok) {
+      setSubError('Failed to load subscription data')
+      setSubLoading(false)
+      return
+    }
+    const data = await res.json()
+    setSubData(data)
+    setSubLoading(false)
+  }
+
+  useEffect(() => { load(); loadSubData() }, [])
 
   async function handleLogout() {
     await fetch('/api/admin/logout', { method: 'POST' })
@@ -778,6 +797,178 @@ export default function AdminDashboard() {
                       >
                         ×
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+
+        {/* ── Reserved Stock Section ──────────────────────────────────────── */}
+        <section style={s.section}>
+          <div style={s.sectionHeader}>
+            <span style={s.sectionTitle}>Stock &amp; Reservations</span>
+            <button style={s.btnOutline} onClick={loadSubData} disabled={subLoading}>
+              Refresh
+            </button>
+          </div>
+
+          {subLoading && <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>}
+          {subError && <p style={{ color: 'var(--error)', fontSize: '13px' }}>{subError}</p>}
+
+          {!subLoading && subData && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+              {/* Table header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: '12px', padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                {['Variant', 'Total Stock', 'Reserved', 'Available'].map((h) => (
+                  <span key={h} style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{h}</span>
+                ))}
+              </div>
+
+              {subData.variants.length === 0 && (
+                <p style={{ padding: '20px', fontSize: '13px', color: 'var(--text-dim)' }}>No variants found.</p>
+              )}
+
+              {subData.variants.map((v) => {
+                const reserved = v.reserved_stock?.[0]?.quantity_reserved ?? 0
+                const available = Math.max(0, v.stock_quantity - reserved)
+                const lowStock = available < 3
+                return (
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 100px 100px 100px',
+                      gap: '12px',
+                      padding: '12px 20px',
+                      borderBottom: '1px solid var(--border)',
+                      alignItems: 'center',
+                      background: lowStock && available > 0 ? 'rgba(224,154,44,0.04)' : 'transparent',
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: '13px' }}>{v.products?.name} — {v.label}</span>
+                      {lowStock && available > 0 && (
+                        <span style={{ marginLeft: '8px', fontSize: '11px', color: '#e09a2c', fontWeight: '500' }}>
+                          Low stock
+                        </span>
+                      )}
+                      {available === 0 && (
+                        <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--error)', fontWeight: '500' }}>
+                          Sold out
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '13px' }}>{v.stock_quantity}</span>
+                    <span style={{ fontSize: '13px', color: reserved > 0 ? 'var(--gold)' : 'var(--text-dim)' }}>{reserved}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '500', color: available === 0 ? 'var(--error)' : available < 3 ? '#e09a2c' : 'var(--success)' }}>
+                      {available}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Subscriptions Section ───────────────────────────────────────── */}
+        <section style={s.section}>
+          <div style={s.sectionHeader}>
+            <span style={s.sectionTitle}>
+              Active Subscriptions ({subData?.subscriptions?.length ?? '…'})
+            </span>
+          </div>
+
+          {subLoading && <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>}
+
+          {!subLoading && subData?.subscriptions?.length === 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+              No active subscriptions yet.
+            </div>
+          )}
+
+          {!subLoading && subData?.subscriptions?.map((sub) => {
+            const monthlyTotal = sub.subscription_items.reduce(
+              (sum, si) => sum + Number(si.variants?.price ?? 0) * si.quantity,
+              0
+            )
+            const statusColor = { active: 'var(--success)', paused: '#e09a2c' }[sub.status] || 'var(--text-muted)'
+            return (
+              <div key={sub.id} style={{ ...s.productCard, marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '180px' }}>
+                    <p style={{ fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>{sub.user_email}</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      Bills on the {sub.billing_day}{['st','nd','rd'][((sub.billing_day % 100 - 11) % 10 - 1)] || 'th'}
+                      &nbsp;· since {new Date(sub.created_at).toLocaleDateString('en-IE', { dateStyle: 'medium' })}
+                    </p>
+                  </div>
+                  <span style={{ ...s.badge, background: sub.status === 'active' ? 'rgba(76,175,128,0.15)' : 'rgba(224,154,44,0.15)', color: statusColor, textTransform: 'capitalize' }}>
+                    {sub.status}
+                  </span>
+                  <span style={{ color: 'var(--gold)', fontWeight: '600', fontSize: '15px', minWidth: '70px', textAlign: 'right' }}>
+                    €{monthlyTotal.toFixed(2)}/mo
+                  </span>
+                </div>
+
+                {sub.subscription_items.length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '10px 20px 14px', background: 'var(--bg)' }}>
+                    {sub.subscription_items.map((si) => (
+                      <div key={si.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', padding: '3px 0' }}>
+                        <span>{si.variants?.products?.name} — {si.variants?.label}</span>
+                        <span>×{si.quantity} &nbsp; €{(Number(si.variants?.price ?? 0) * si.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </section>
+
+        {/* ── Monthly Orders Section ──────────────────────────────────────── */}
+        <section style={s.section}>
+          <div style={s.sectionHeader}>
+            <span style={s.sectionTitle}>
+              Subscription Orders This Month ({subData?.monthlyOrders?.length ?? '…'})
+            </span>
+          </div>
+
+          {subLoading && <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>}
+
+          {!subLoading && subData?.monthlyOrders?.length === 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+              No subscription orders this month yet.
+            </div>
+          )}
+
+          {!subLoading && subData?.monthlyOrders?.map((order) => (
+            <div key={order.id} style={{ ...s.productCard, marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '180px' }}>
+                  <p style={{ fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>{order.email}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {new Date(order.created_at).toLocaleDateString('en-IE', { dateStyle: 'medium' })}
+                  </p>
+                </div>
+                <span style={{ ...s.badge, background: 'rgba(76,175,128,0.15)', color: 'var(--success)' }}>
+                  Paid
+                </span>
+                <span style={{ color: 'var(--gold)', fontWeight: '600', fontSize: '15px', minWidth: '70px', textAlign: 'right' }}>
+                  €{((order.total ?? 0) / 100).toFixed(2)}
+                </span>
+              </div>
+
+              {Array.isArray(order.items) && order.items.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '10px 20px 14px', background: 'var(--bg)' }}>
+                  <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                    Pack &amp; ship
+                  </p>
+                  {order.items.map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', padding: '3px 0' }}>
+                      <span>{item.description}</span>
+                      <span>×{item.quantity}</span>
                     </div>
                   ))}
                 </div>
