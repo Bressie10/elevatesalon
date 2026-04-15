@@ -24,22 +24,34 @@ export async function PUT(request, { params }) {
 
   const updates = {}
 
-  // If price changed, create new Stripe price and archive old one
-  if (price != null && price !== existing.price) {
-    // Archive old price
-    if (existing.stripe_price_id) {
-      await stripe.prices.update(existing.stripe_price_id, { active: false }).catch(() => null)
-    }
+  // If price changed, archive old prices and create new ones (one-time + recurring)
+  if (price != null && Number(price) !== Number(existing.price)) {
+    await Promise.all([
+      existing.stripe_price_id
+        ? stripe.prices.update(existing.stripe_price_id, { active: false }).catch(() => null)
+        : null,
+      existing.stripe_subscription_price_id
+        ? stripe.prices.update(existing.stripe_subscription_price_id, { active: false }).catch(() => null)
+        : null,
+    ])
 
-    // Create new price
-    const newStripePrice = await stripe.prices.create({
-      product: existing.stripe_product_id,
-      unit_amount: Math.round(price * 100),
-      currency: 'eur',
-    })
+    const [newStripePrice, newStripeRecurringPrice] = await Promise.all([
+      stripe.prices.create({
+        product: existing.stripe_product_id,
+        unit_amount: Math.round(price * 100),
+        currency: 'eur',
+      }),
+      stripe.prices.create({
+        product: existing.stripe_product_id,
+        unit_amount: Math.round(price * 100),
+        currency: 'eur',
+        recurring: { interval: 'month' },
+      }),
+    ])
 
     updates.price = price
     updates.stripe_price_id = newStripePrice.id
+    updates.stripe_subscription_price_id = newStripeRecurringPrice.id
   }
 
   if (label != null) updates.label = label

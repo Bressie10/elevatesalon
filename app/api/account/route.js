@@ -1,6 +1,26 @@
 import { getAdminClient } from '@/lib/supabase'
 import { stripe } from '@/lib/stripe'
 
+// Returns true if today is within 14 days of the next billing date
+function isEditLocked(billingDay) {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  let next = new Date(year, month, billingDay)
+  if (next.getTime() <= now.getTime()) next = new Date(year, month + 1, billingDay)
+  const daysUntil = (next.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  return daysUntil <= 14
+}
+
+function nextBillingDate(billingDay) {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  let next = new Date(year, month, billingDay)
+  if (next.getTime() <= now.getTime()) next = new Date(year, month + 1, billingDay)
+  return next.toISOString().split('T')[0] // YYYY-MM-DD
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const email = searchParams.get('email')?.trim()
@@ -29,13 +49,26 @@ export async function GET(request) {
   if (error) return Response.json({ error: 'Failed to fetch subscription' }, { status: 500 })
   if (!subscription) return Response.json({ subscription: null })
 
-  // Fetch reserved stock for available_to_sell display
+  // Fetch reserved stock and order history in parallel
   const variantIds = subscription.subscription_items.map((i) => i.variant_id)
-  const { data: reserved } = variantIds.length
-    ? await db.from('reserved_stock').select('variant_id, quantity_reserved').in('variant_id', variantIds)
-    : { data: [] }
+  const [reservedResult, ordersResult] = await Promise.all([
+    variantIds.length
+      ? db.from('reserved_stock').select('variant_id, quantity_reserved').in('variant_id', variantIds)
+      : Promise.resolve({ data: [] }),
+    db.from('orders')
+      .select('id, created_at, total, items, stripe_session_id')
+      .eq('subscription_id', subscription.id)
+      .order('created_at', { ascending: false })
+      .limit(12),
+  ])
 
-  return Response.json({ subscription, reserved: reserved || [] })
+  return Response.json({
+    subscription,
+    reserved: reservedResult.data || [],
+    orders: ordersResult.data || [],
+    locked: isEditLocked(subscription.billing_day),
+    nextBillingDate: nextBillingDate(subscription.billing_day),
+  })
 }
 
 export async function PUT(request) {
@@ -61,6 +94,14 @@ export async function PUT(request) {
 
     if (subErr || !sub) {
       return Response.json({ error: 'Subscription not found' }, { status: 404 })
+    }
+
+    // 14-day lock before billing date
+    if (isEditLocked(sub.billing_day)) {
+      return Response.json(
+        { error: `Your bundle is locked within 14 days of your billing date (${nextBillingDate(sub.billing_day)}). Changes will re-open after that invoice is sent.` },
+        { status: 403 }
+      )
     }
 
     const newVariantIds = items.map((i) => i.variantId)

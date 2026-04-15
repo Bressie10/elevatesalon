@@ -29,10 +29,10 @@ export async function POST(request) {
     const db = getAdminClient()
     const variantIds = items.map((i) => i.variantId)
 
-    // Fetch variants
+    // Fetch variants (including both price IDs)
     const { data: variants, error: vErr } = await db
       .from('variants')
-      .select('id, label, price, stripe_price_id, stock_quantity')
+      .select('id, label, price, stripe_price_id, stripe_subscription_price_id, stripe_product_id, stock_quantity')
       .in('id', variantIds)
 
     if (vErr || !variants?.length) {
@@ -48,17 +48,11 @@ export async function POST(request) {
     const reservedMap = {}
     reserved?.forEach((r) => { reservedMap[r.variant_id] = r.quantity_reserved })
 
-    // Check availability
+    // Check availability and ensure each variant has a recurring price
     for (const item of items) {
       const variant = variants.find((v) => v.id === item.variantId)
       if (!variant) {
         return Response.json({ error: 'Variant not found' }, { status: 400 })
-      }
-      if (!variant.stripe_price_id) {
-        return Response.json(
-          { error: `Variant "${variant.label}" is not configured for purchase` },
-          { status: 400 }
-        )
       }
       const available = variant.stock_quantity - (reservedMap[item.variantId] || 0)
       if (available < item.quantity) {
@@ -67,15 +61,33 @@ export async function POST(request) {
           { status: 400 }
         )
       }
+
+      // Create a recurring price on-the-fly for legacy variants that only have a one-time price
+      if (!variant.stripe_subscription_price_id) {
+        if (!variant.stripe_product_id) {
+          return Response.json(
+            { error: `Variant "${variant.label}" is not configured for purchase` },
+            { status: 400 }
+          )
+        }
+        const recurringPrice = await stripe.prices.create({
+          product: variant.stripe_product_id,
+          unit_amount: Math.round(Number(variant.price) * 100),
+          currency: 'eur',
+          recurring: { interval: 'month' },
+        })
+        variant.stripe_subscription_price_id = recurringPrice.id
+        await db.from('variants').update({ stripe_subscription_price_id: recurringPrice.id }).eq('id', variant.id)
+      }
     }
 
     // Create Stripe Customer
     const customer = await stripe.customers.create({ email })
 
-    // Create Stripe Subscription (send_invoice = Stripe emails the invoice)
+    // Create Stripe Subscription using recurring prices (send_invoice = Stripe emails the invoice)
     const stripeItems = items.map((item) => {
       const variant = variants.find((v) => v.id === item.variantId)
-      return { price: variant.stripe_price_id, quantity: item.quantity }
+      return { price: variant.stripe_subscription_price_id, quantity: item.quantity }
     })
 
     const subscription = await stripe.subscriptions.create({

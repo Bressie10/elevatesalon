@@ -30,16 +30,24 @@ export async function POST(request) {
     return Response.json({ error: 'Product not found' }, { status: 404 })
   }
 
-  // Create Stripe product + price
+  // Create Stripe product + two prices: one-time (shop) and recurring (subscriptions)
   const stripeProduct = await stripe.products.create({
     name: `${product.name} — ${label}`,
   })
 
-  const stripePrice = await stripe.prices.create({
-    product: stripeProduct.id,
-    unit_amount: Math.round(price * 100),
-    currency: 'eur',
-  })
+  const [stripePrice, stripeRecurringPrice] = await Promise.all([
+    stripe.prices.create({
+      product: stripeProduct.id,
+      unit_amount: Math.round(price * 100),
+      currency: 'eur',
+    }),
+    stripe.prices.create({
+      product: stripeProduct.id,
+      unit_amount: Math.round(price * 100),
+      currency: 'eur',
+      recurring: { interval: 'month' },
+    }),
+  ])
 
   const { data, error } = await db
     .from('variants')
@@ -51,6 +59,7 @@ export async function POST(request) {
       stock_quantity,
       stripe_price_id: stripePrice.id,
       stripe_product_id: stripeProduct.id,
+      stripe_subscription_price_id: stripeRecurringPrice.id,
     })
     .select()
     .single()
